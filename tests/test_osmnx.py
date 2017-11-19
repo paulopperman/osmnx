@@ -6,7 +6,7 @@ OSMnx tests
 import matplotlib as mpl
 mpl.use('Agg') #use agg backend so you don't need a display on travis-ci
 
-import os, shutil
+import os, shutil, bz2, tempfile
 if os.path.exists('.temp'):
     shutil.rmtree('.temp')
 
@@ -43,6 +43,29 @@ def test_gdf_shapefiles():
 
     city = ox.gdf_from_place('Manhattan, New York City, New York, USA', buffer_dist=100)
     ox.plot_shape(city)
+
+
+def test_graph_from_file():
+
+    node_id = 53098262
+    neighbor_ids = 53092170, 53060438, 53027353, 667744075
+
+    with bz2.BZ2File('tests/input_data/West-Oakland.osm.bz2') as input:
+        handle, temp_filename = tempfile.mkstemp(suffix='.osm')
+        os.write(handle, input.read())
+        os.close(handle)
+
+    for filename in ('tests/input_data/West-Oakland.osm.bz2', temp_filename):
+        G = ox.graph_from_file(filename)
+        assert node_id in G.nodes
+
+        for neighbor_id in neighbor_ids:
+            edge_key = (node_id, neighbor_id, 0)
+            assert neighbor_id in G.nodes
+            assert edge_key in G.edges
+            assert G.edges[edge_key]['name'] in ('8th Street', 'Willow Street')
+
+    os.remove(temp_filename)
 
 
 def test_network_saving_loading():
@@ -121,7 +144,7 @@ def test_plots():
 def test_routing_folium():
 
     import networkx as nx
-    G = ox.graph_from_address('N. Sicily Pl., Chandler, Arizona', distance=800, network_type='drive')
+    G = ox.graph_from_address('398 N. Sicily Pl., Chandler, Arizona', distance=800, network_type='drive')
     origin = (33.307792, -111.894940)
     destination = (33.312994, -111.894998)
     origin_node = ox.get_nearest_node(G, origin)
@@ -141,5 +164,5 @@ def test_routing_folium():
 def test_buildings():
 
     gdf = ox.buildings_from_place(place='Piedmont, California, USA')
-    gdf = ox.buildings_from_address(address='San Francisco, California, USA', distance=300)
+    gdf = ox.buildings_from_address(address='260 Stockton Street, San Francisco, California, USA', distance=300)
     fig, ax = ox.plot_buildings(gdf)
